@@ -1,72 +1,64 @@
 import os
-import shutil
-import hashlib
+import re
+import logging
+import sched, time
+from synchronizer import Synchronizer
+import argparse
 
 
-def hashfile(file):
-    """A function which returns the hashing of a file"""
-
-    BUF_SIZE = 65536
-
-    sha256 = hashlib.sha256()
-
-    with open(file, 'rb') as f:
-        while True:
-            data = f.read(BUF_SIZE)
-            if not data:
-                break
-            sha256.update(data)
-    return sha256.hexdigest()
+def execute_synchronization(scheduler):
+    """a function to schedule the next call first"""
+    scheduler.enter(seconds, 1, execute_synchronization, (scheduler,))
+    print("Starting synchronization ... ")
+    synchronizer.backup_folder()
+    print(f"Synchronization finished. Next run in {interval}. ")
 
 
-source = input("Source folder for synchronization: ")
+# handling arguments
+parser = argparse.ArgumentParser(description="Solution for folder synctionization")
+parser.add_argument("source", help="Source location")
+parser.add_argument("replica", help="Replica location")
+parser.add_argument("log_file", help="Log file")
+parser.add_argument("interval", help="Interval (optional)", default=0)
+
+args = parser.parse_args()
+source = args.source
+replica = args.replica
+log_file = args.log_file
+interval = args.interval
+
+logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',filename=log_file, encoding='utf-8', level=logging.DEBUG)
+
+# some input validation
 if not os.path.isdir(source):
-    raise NameError('Location does not exist!')
+    message = f"Source location '{source}' does not exist!"
+    logging.error(message)
+    raise NameError(message)
 
-replica = input("Destination folder for replication: ")
-replica = os.path.join(replica, os.path.basename(source) + "_backup")
-if not os.path.exists(replica):
-    os.mkdir(replica)
+elif not re.match(r"\d+[smhd]{1}\b", interval):
+    message = "Interval should be a digit followed by s/m/h/d for seconds, minutes, hours or day."
+    logging.error(message)
+    raise NameError(message)
 
-for dirname, dirnames, filenames in os.walk(source):
-    # print path to all filenames.
-    for filename in filenames:
-        source_file = os.path.join(dirname, filename)
-        destination_file = source_file.replace(source, replica)
-        destination_location = dirname.replace(source, replica)
+# transform interval into seconds
+else:
+    if re.match(r"\d+[d]{1}\b", interval):
+        seconds = int(re.search(r'\d+', interval).group() * 24 * 60 * 60)
+    elif re.match(r"\d+[h]{1}\b", interval):
+        seconds = int(re.search(r'\d+', interval).group() * 60 * 60)
+    elif re.match(r"\d+[m]{1}\b", interval):
+        seconds = int(re.search(r'\d+', interval).group() * 60)
+    else:
+        seconds = int(re.search(r'\d+', interval).group())
 
-        # check if folder exists and if not, create it
-        if not os.path.exists(destination_location):
-            os.makedirs(destination_location)
-        # check if file exists and it not, copy it
-        if not os.path.isfile(destination_file):
-            shutil.copy2(source_file, destination_file)
-        else:
-            f1_hash = hashfile(source_file)
-            f2_hash = hashfile(destination_file)
-            if f1_hash != f2_hash:
-                shutil.copy2(source_file, destination_file)
-                print("Different Hash" + source_file)
+# check if interval has been set. If not, run only once
+synchronizer = Synchronizer(source=source, replica=replica, log_file=log_file)
 
-
-# delete obsolete files and folders in the replica folder
-for dirname, dirnames, filenames in os.walk(replica):
-    for filename in filenames:
-        replica_file = os.path.join(dirname, filename)
-        source_file = replica_file.replace(replica, source)
-        # delete removed files
-        if not os.path.isfile(source_file):
-            os.remove(replica_file)
-
-    for folder in dirnames:
-        replica_destination = os.path.join(dirname, folder)
-        source_location = replica_destination.replace(replica, source)
-        # delete removed folders
-        if not os.path.exists(source_location):
-            shutil.rmtree(replica_destination)
-
-
-#sync_interval = input("Synchronization interval: ")
-#log_file = input("Destination for log file: ")
-
-
+if interval != 0:
+    my_scheduler = sched.scheduler(time.time, time.sleep)
+    my_scheduler.enter(0, 1, execute_synchronization, (my_scheduler,))
+    my_scheduler.run()
+else:
+    print("Starting synchronization ... ")
+    synchronizer.backup_folder()
+    print(f"Synchronization finished.")
