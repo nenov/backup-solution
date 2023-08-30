@@ -1,25 +1,27 @@
+import argparse
+import logging
 import os
 import re
-import logging
-import sched, time
+import sched
+import time
+
 from synchronizer import Synchronizer
-import argparse
 
 
 def execute_synchronization(scheduler):
-    """a function to schedule the next call first"""
+    """a function to schedule the next synchronization"""
     scheduler.enter(seconds, 1, execute_synchronization, (scheduler,))
-    print("Starting synchronization ... ")
+    logging.info("Starting synchronization ... ")
     synchronizer.backup_folder()
-    print(f"Synchronization finished. Next run in {interval}. ")
+    logging.info(f"Synchronization finished. Next run in {interval}. ")
 
 
 # handling arguments
-parser = argparse.ArgumentParser(description="Solution for folder synctionization")
+parser = argparse.ArgumentParser(description="Solution for folder synchronization")
 parser.add_argument("source", help="Source location")
 parser.add_argument("replica", help="Replica location")
 parser.add_argument("log_file", help="Log file")
-parser.add_argument("interval", help="Interval (optional)", default=0)
+parser.add_argument("-interval", help="Interval (optional)", default='0s', required=False)
 
 args = parser.parse_args()
 source = args.source
@@ -54,11 +56,11 @@ else:
 # check if interval has been set. If not, run only once
 synchronizer = Synchronizer(source=source, replica=replica, log_file=log_file)
 
-if interval != 0:
+if seconds != 0:
     my_scheduler = sched.scheduler(time.time, time.sleep)
     my_scheduler.enter(0, 1, execute_synchronization, (my_scheduler,))
     my_scheduler.run()
 else:
-    print("Starting synchronization ... ")
+    logging.info("Starting synchronization ... ")
     synchronizer.backup_folder()
-    print(f"Synchronization finished.")
+    logging.info("Synchronization finished.")
