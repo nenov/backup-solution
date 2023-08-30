@@ -24,7 +24,7 @@ class Synchronizer:
         self.source = source
         self.replica = os.path.join(replica, os.path.basename(source) + "_backup")
         self.log_file = log_file
-        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',filename=log_file, encoding='utf-8', level=logging.DEBUG)
+        logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', filename=log_file,encoding='utf-8', level=logging.DEBUG)
         logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
     def backup_folder(self):
